@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import csv
 import json
 import math
@@ -50,6 +51,10 @@ def read_data(input_file):
 def get_log_prob_unigram(masked_token_ids, token_ids, mask_idx, lm):
     """
     Given a sequence of token ids, with one masked token, return the log probability of the masked token.
+        masked_token_ids        masked sent
+        token_ids               original sent
+        mask_idx                the index of the masked token(not the indice for [mask])
+        lm                      all about language model
     """
     
     model = lm["model"]
@@ -58,15 +63,17 @@ def get_log_prob_unigram(masked_token_ids, token_ids, mask_idx, lm):
     mask_token = lm["mask_token"]
     uncased = lm["uncased"]
 
-    # get model hidden states
+    # get model hidden 
     output = model(masked_token_ids)
-    hidden_states = output[0].squeeze(0)
+    hidden_states = output[0].squeeze(0)  
+    # (batch_size=1, sequence_length, hidden_size) --> (sequence_length, hidden_size)
     mask_id = tokenizer.convert_tokens_to_ids(mask_token)
 
     # we only need log_prob for the MASK tokens
     assert masked_token_ids[0][mask_idx] == mask_id
 
-    hs = hidden_states[mask_idx]
+    # select the hidden state of [MASK]
+    hs = hidden_states[mask_idx]  # (hidden_size)
     target_id = token_ids[0][mask_idx]
     log_probs = log_softmax(hs)[target_id]
 
@@ -122,6 +129,18 @@ def mask_unigram(data, lm, n=1):
     sent1_token_ids = tokenizer.encode(sent1, return_tensors='pt')
     sent2_token_ids = tokenizer.encode(sent2, return_tensors='pt')
 
+    # return of tokenizer
+    """
+        {
+        input_ids: list[int],
+        token_type_ids: list[int] if return_token_type_ids is True (default)
+        attention_mask: list[int] if return_attention_mask is True (default)
+        overflowing_tokens: list[int] if the tokenizer is a slow tokenize, else a List[List[int]] if a ``max_length`` is specified and ``return_overflowing_tokens=True``
+        special_tokens_mask: list[int] if ``add_special_tokens`` if set to ``True``
+        and return_special_tokens_mask is True
+        }
+    """
+
     # get spans of non-changing tokens
     template1, template2 = get_span(sent1_token_ids[0], sent2_token_ids[0])
 
@@ -139,6 +158,7 @@ def mask_unigram(data, lm, n=1):
         sent1_masked_token_ids = sent1_token_ids.clone().detach()
         sent2_masked_token_ids = sent2_token_ids.clone().detach()
 
+        # mask one word a time by replace the id
         sent1_masked_token_ids[0][template1[i]] = mask_id
         sent2_masked_token_ids[0][template2[i]] = mask_id
         total_masked_tokens += 1
@@ -188,6 +208,10 @@ def evaluate(args):
 
     model.eval()
     if torch.cuda.is_available():
+        #TODO
+        print("="*25)
+        print(f"using GPU{torch.cuda.current_device()}")
+        print("="*25)
         model.to('cuda')
 
     mask_token = tokenizer.mask_token

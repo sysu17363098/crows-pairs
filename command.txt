@@ -1,0 +1,1 @@
+python metric.py --input_file data\crows_pairs_sampled_gender.csv --lm_model albert --output_file roberta_gender_score.csv
