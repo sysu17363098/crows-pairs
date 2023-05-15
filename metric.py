@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+#os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import csv
 import json
 import math
@@ -10,6 +10,8 @@ import logging
 import numpy as np
 import pandas as pd
 
+from transformers import AutoTokenizer, AutoModel
+from transformers import DebertaTokenizer, DebertaForMaskedLM
 from transformers import BertTokenizer, BertForMaskedLM
 from transformers import AlbertTokenizer, AlbertForMaskedLM
 from transformers import RobertaTokenizer, RobertaForMaskedLM
@@ -183,6 +185,7 @@ def evaluate(args):
     """
 
     print("Evaluating:")
+    
     print("Input:", args.input_file)
     print("Model:", args.lm_model)
     print("=" * 100)
@@ -205,14 +208,17 @@ def evaluate(args):
         tokenizer = AlbertTokenizer.from_pretrained('albert-xxlarge-v2')
         model = AlbertForMaskedLM.from_pretrained('albert-xxlarge-v2')
         uncased = True
+    elif args.lm_model == "deberta":
+        tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-large",use_fast=True)
+        #tokenizer = AutoTokenizer.from_pretrained("microsoft/deberta-v3-large",use_fast=True)
+        model = DebertaForMaskedLM.from_pretrained("microsoft/deberta-v3-large")
+        uncased = False
 
     model.eval()
     if torch.cuda.is_available():
-        #TODO
-        print("="*25)
-        print(f"using GPU{torch.cuda.current_device()}")
-        print("="*25)
         model.to('cuda')
+
+    print(f"GPU DEVICE:{torch.cuda.is_available()}")
 
     mask_token = tokenizer.mask_token
     log_softmax = torch.nn.LogSoftmax(dim=0)
